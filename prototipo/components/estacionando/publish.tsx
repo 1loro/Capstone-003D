@@ -1,8 +1,47 @@
-import { Check, ChevronRight, FileCheck2, ShieldCheck, Upload } from 'lucide-react'
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { UserRound } from 'lucide-react'
 import { PageShell } from './page-shell'
+import { CreateSpotWizard } from './create-spot-wizard'
+import { MySpotsList } from './my-spots-list'
+import { EditSpotForm } from './edit-spot-form'
+import type { SessionUser } from '@/lib/auth/types'
+import type { OwnerSpot } from '@/lib/parking-spots/queries'
 
-export function Publish({ step, setStep, published, finish }: { step: number; setStep: (step: number) => void; published: boolean; finish: () => void }) {
-  if (published) return <PageShell eyebrow="Listo" title="Tu espacio está publicado" description="Ahora las personas podrán encontrarlo cuando busquen estacionamiento cerca."><div className="max-w-xl rounded-3xl border border-border bg-card p-7"><div className="flex size-14 items-center justify-center rounded-2xl bg-accent text-accent-foreground"><Check className="size-7" /></div><h2 className="mt-5 text-2xl font-semibold">Casa Lyon · Providencia</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Publicado a $3.000 por hora · Disponible todos los días.</p><button onClick={() => window.location.reload()} className="mt-6 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground">Ver mi anuncio</button></div></PageShell>
+type ParkingTypeOption = { id: string; name: string }
+type Mode = { kind: 'list' } | { kind: 'create' } | { kind: 'edit'; spotId: string }
 
-  return <PageShell eyebrow="Comparte tu espacio" title="Publica tu estacionamiento" description="Convierte ese lugar libre en ingresos, con control total de tus horarios."><div className="grid gap-5 lg:grid-cols-[.65fr_1.35fr]"><aside className="rounded-3xl border border-border bg-card p-6 text-foreground shadow-sm"><p className="text-sm text-muted-foreground">Paso {step} de 3</p><div className="mt-7 flex flex-col gap-5">{[['1', 'Tu espacio'], ['2', 'Detalles'], ['3', 'Publicar']].map(([number, label]) => <button key={number} onClick={() => setStep(Number(number))} className={`flex items-center gap-3 text-left text-sm ${step === Number(number) ? 'font-semibold' : 'text-muted-foreground'}`}><span className={`flex size-8 items-center justify-center rounded-full border ${step >= Number(number) ? 'border-accent bg-accent text-accent-foreground' : 'border-primary-foreground/25'}`}>{step > Number(number) ? <Check className="size-4" /> : number}</span>{label}</button>)}</div><div className="mt-16 border-t border-border pt-5 text-xs leading-5 text-primary-foreground/55">Puedes editar disponibilidad y precio cuando quieras.</div></aside><div className="rounded-3xl border border-border bg-card p-6 sm:p-8">{step === 1 && <><h2 className="text-2xl font-semibold">Cuéntanos sobre el lugar</h2><p className="mt-2 text-sm text-muted-foreground">Comienza con la ubicación de tu estacionamiento.</p><label className="mt-7 block text-sm font-medium">Dirección aproximada<input className="mt-2 w-full rounded-xl border border-input bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-accent/30" placeholder="Ej. Av. Italia 1234, Ñuñoa" /></label><div className="mt-5 rounded-2xl border border-dashed border-border p-8 text-center"><Upload className="mx-auto size-7 text-muted-foreground" /><p className="mt-3 text-sm font-medium">Agrega fotos de tu espacio</p><p className="mt-1 text-xs text-muted-foreground">Puedes subir hasta 5 imágenes</p></div></>}{step === 2 && <><h2 className="text-2xl font-semibold">Define tus condiciones</h2><p className="mt-2 text-sm text-muted-foreground">Las personas verán esta información antes de reservar.</p><div className="mt-7 grid gap-4 sm:grid-cols-2"><label className="text-sm font-medium">Precio por hora<input className="mt-2 w-full rounded-xl border border-input bg-background px-4 py-3" placeholder="$ 3.000" /></label><label className="text-sm font-medium">Tipo de espacio<select className="mt-2 w-full rounded-xl border border-input bg-background px-4 py-3"><option>Techado</option><option>Al aire libre</option><option>Privado</option></select></label></div><div className="mt-5 flex items-center gap-3 rounded-2xl bg-muted p-4 text-sm"><ShieldCheck className="size-5 text-accent" /> Mi espacio tendrá verificación de ubicación.</div></>}{step === 3 && <><h2 className="text-2xl font-semibold">Revisa y publica</h2><p className="mt-2 text-sm text-muted-foreground">Así se verá tu anuncio para la comunidad.</p><div className="mt-7 rounded-2xl bg-muted p-5"><div className="flex justify-between"><div><b>Casa Lyon</b><p className="mt-1 text-sm text-muted-foreground">Providencia, Santiago · Techado</p></div><b>$3.000 <span className="font-normal text-muted-foreground">/ hora</span></b></div></div><div className="mt-5 flex items-start gap-3 text-sm text-muted-foreground"><FileCheck2 className="mt-0.5 size-4 shrink-0 text-accent" /> Al publicar confirmas que tienes permiso para ofrecer este espacio.</div></>}<div className="mt-8 flex justify-end gap-3">{step > 1 && <button onClick={() => setStep(step - 1)} className="rounded-full border border-border px-5 py-3 text-sm font-medium">Atrás</button>}<button onClick={() => step < 3 ? setStep(step + 1) : finish()} className="flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground">{step < 3 ? 'Continuar' : 'Publicar espacio'} <ChevronRight className="size-4" /></button></div></div></div></PageShell>
+export function Publish({ user, parkingTypes, ownerSpots }: { user: SessionUser | null; parkingTypes: ParkingTypeOption[]; ownerSpots: OwnerSpot[] }) {
+  const [mode, setMode] = useState<Mode>(ownerSpots.length === 0 ? { kind: 'create' } : { kind: 'list' })
+
+  if (!user) {
+    return (
+      <PageShell eyebrow="Comparte tu espacio" title="Publica tu estacionamiento" description="Inicia sesión para publicar un espacio y empezar a recibir reservas.">
+        <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-border bg-card text-center">
+          <UserRound className="size-10 text-accent" />
+          <h2 className="mt-4 text-xl font-semibold">Aún no has iniciado sesión</h2>
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground">Crea una cuenta o inicia sesión para publicar tu estacionamiento.</p>
+          <div className="mt-5 flex gap-3">
+            <Link href="/login" className="rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground">Iniciar sesión</Link>
+            <Link href="/register" className="rounded-full border border-border px-5 py-3 text-sm font-medium">Crear cuenta</Link>
+          </div>
+        </div>
+      </PageShell>
+    )
+  }
+
+  if (mode.kind === 'create') {
+    return <CreateSpotWizard parkingTypes={parkingTypes} onDone={() => setMode({ kind: 'list' })} onBack={ownerSpots.length > 0 ? () => setMode({ kind: 'list' }) : undefined} />
+  }
+
+  if (mode.kind === 'edit') {
+    const spot = ownerSpots.find((candidate) => candidate.id === mode.spotId)
+    if (spot) {
+      return <EditSpotForm spot={spot} parkingTypes={parkingTypes} onBack={() => setMode({ kind: 'list' })} />
+    }
+  }
+
+  return <MySpotsList spots={ownerSpots} onCreateNew={() => setMode({ kind: 'create' })} onEdit={(spotId) => setMode({ kind: 'edit', spotId })} />
 }
