@@ -1,5 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import Script from 'next/script'
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
@@ -12,15 +13,21 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'light',
-  themeColor: '#faf9f6',
+  colorScheme: 'light dark',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#faf9f6' },
+    { media: '(prefers-color-scheme: dark)', color: '#15171e' },
+  ],
   userScalable: true,
 }
 
+const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}`
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className="bg-background">
+    <html lang="es" className="bg-background" suppressHydrationWarning>
       <body className={`${geist.variable} ${geistMono.variable} antialiased`}>
+        <Script id="theme-init" strategy="beforeInteractive">{THEME_INIT_SCRIPT}</Script>
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
