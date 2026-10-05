@@ -21,6 +21,8 @@ export type AdminSpotRow = {
   ownerEmail: string
   isPublished: boolean
   isArchived: boolean
+  /** Published, not archived, but every availability window has already ended — invisible to Explorar despite the "published" flag. */
+  isExpired: boolean
   reservationsCount: number
   createdAt: Date
 }
@@ -50,7 +52,7 @@ export type AdminTaskRow = {
   id: string
   epic: string
   title: string
-  done: boolean
+  status: 'TODO' | 'IN_PROGRESS' | 'DONE'
   assignedTo: { id: string; name: string } | null
 }
 
@@ -71,7 +73,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       orderBy: { createdAt: 'desc' },
     }),
     prisma.parkingSpot.findMany({
-      include: { owner: true, _count: { select: { reservations: true } } },
+      include: { owner: true, _count: { select: { reservations: true, availabilities: { where: { endTime: { gt: now } } } } } },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.reservation.count(),
@@ -119,6 +121,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       ownerEmail: s.owner.email,
       isPublished: s.isPublished,
       isArchived: s.archivedAt !== null,
+      isExpired: s.isPublished && s.archivedAt === null && s._count.availabilities === 0,
       reservationsCount: s._count.reservations,
       createdAt: s.createdAt,
     })),
@@ -137,7 +140,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       id: t.id,
       epic: t.epic,
       title: t.title,
-      done: t.done,
+      status: t.status,
       assignedTo: t.assignedTo ? { id: t.assignedTo.id, name: t.assignedTo.name } : null,
     })),
   }
